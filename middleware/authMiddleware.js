@@ -55,3 +55,18 @@ export const protect = async (req, res, next) => {
     });
   }
 };
+
+// Restriction middleware to check user types
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.type)) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'You do not have permission to perform this action'
+      });
+    }
+    next();
+  };
+};
+
+
