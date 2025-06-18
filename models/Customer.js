@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const customerSchema = new mongoose.Schema({
   fullName: {
@@ -38,6 +39,44 @@ const customerSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// Hash password before saving
+customerSchema.pre("save", async function (next) {
+  // Only run this function if password was actually modified
+  if (!this.isModified("password")) return next();
+
+  // Hash the password with cost of 12
+  this.password = await bcrypt.hash(
+    this.password,
+    parseInt(process.env.BCRYPT_ROUNDS) || 12
+  );
+  next();
+});
+
+// Instance method to check password
+customerSchema.methods.correctPassword = async function (
+  candidatePassword,
+  userPassword
+) {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
+
+// Instance method to create password reset code
+customerSchema.methods.createPasswordResetCode = function () {
+  // Generate 6-digit code
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Hash the code before storing (for security)
+  this.passwordResetCode = crypto
+    .createHash("sha256")
+    .update(resetCode)
+    .digest("hex");
+
+  // Code expires in 10 minutes
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  return resetCode; // Return the plain code to send via email
+};
 
 const Customer = mongoose.model("Customer", customerSchema);
 export default Customer;
