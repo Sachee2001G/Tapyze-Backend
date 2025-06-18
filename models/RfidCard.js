@@ -74,6 +74,22 @@ const rfidCardSchema = new mongoose.Schema({
   },
 });
 
+// Hash PIN before saving
+rfidCardSchema.pre("save", async function (next) {
+  if (!this.isModified("pin")) return next();
+
+  // Validate PIN format
+  if (!/^\d{4,6}$/.test(this.pin)) {
+    const error = new Error("PIN must be 4-6 digits");
+    error.name = "ValidationError";
+    return next(error);
+  }
+
+  this.pin = await bcrypt.hash(this.pin, 12);
+  this.lastPinChange = new Date();
+  next();
+});
+
 // Instance method to verify PIN
 rfidCardSchema.methods.verifyPin = async function (candidatePin) {
   // Check if card is locked
@@ -141,19 +157,3 @@ rfidCardSchema.methods.toJSON = function () {
 
 const RfidCard = mongoose.model("RfidCard", rfidCardSchema);
 export default RfidCard;
-
-// Hash PIN before saving
-rfidCardSchema.pre('save', async function(next) {
-  if (!this.isModified('pin')) return next();
-  
-  // Validate PIN format
-  if (!/^\d{4,6}$/.test(this.pin)) {
-    const error = new Error('PIN must be 4-6 digits');
-    error.name = 'ValidationError';
-    return next(error);
-  }
-  
-  this.pin = await bcrypt.hash(this.pin, 12);
-  this.lastPinChange = new Date();
-  next();
-});
