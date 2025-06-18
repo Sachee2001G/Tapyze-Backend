@@ -3,6 +3,8 @@ import Customer from "../models/Customer.js";
 import Merchant from "../models/Merchant.js";
 import Transaction from "../models/Transaction.js";
 import Wallet from "../models/Wallet.js";
+import RfidCard from "../models/RfidCard.js";
+import NfcScanner from "../models/NfcScanner.js";
 
 // Get all admins (admin-only)
 export const getAllAdmins = async (req, res, next) => {
@@ -245,6 +247,58 @@ export const getAllMerchants = async (req, res, next) => {
       results: merchantsWithDetails.length,
       data: {
         merchants: merchantsWithDetails,
+        pagination: {
+          total,
+          page,
+          pages: Math.ceil(total / limit),
+          limit,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get all transactions (admin-only)
+export const getAllTransactions = async (req, res, next) => {
+  try {
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Optional date filters
+    const dateFilter = {};
+    if (req.query.startDate) {
+      dateFilter.createdAt = { $gte: new Date(req.query.startDate) };
+    }
+    if (req.query.endDate) {
+      if (dateFilter.createdAt) {
+        dateFilter.createdAt.$lte = new Date(req.query.endDate);
+      } else {
+        dateFilter.createdAt = { $lte: new Date(req.query.endDate) };
+      }
+    }
+
+    // Get transactions with pagination
+    const transactions = await Transaction.find(dateFilter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: "wallet",
+        select: "owner ownerType",
+      });
+
+    // Get total count for pagination info
+    const total = await Transaction.countDocuments(dateFilter);
+
+    res.status(200).json({
+      status: "success",
+      results: transactions.length,
+      data: {
+        transactions,
         pagination: {
           total,
           page,
