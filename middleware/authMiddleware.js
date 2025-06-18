@@ -1,6 +1,8 @@
 import Customer from "../models/Customer.js";
 import Merchant from "../models/Merchant.js";
 import Admin from "../models/Admin.js";
+import jwt from "jsonwebtoken";
+import { promisify } from "util";
 
 export const protect = async (req, res, next) => {
   try {
@@ -61,12 +63,32 @@ export const restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.type)) {
       return res.status(403).json({
-        status: 'error',
-        message: 'You do not have permission to perform this action'
+        status: "error",
+        message: "You do not have permission to perform this action",
       });
     }
     next();
   };
 };
+// Admin only middleware (convenience function)
+export const adminOnly = (req, res, next) => {
+  if (req.user.type !== 'Admin') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'This route is restricted to admin users only'
+    });
+  }
+  next();
+};
 
+// Customer only middleware (convenience function)
+export const customerOnly = (req, res, next) => {
+  if (req.user.type !== 'Customer') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'This route is restricted to customer users only'
+    });
+  }
+  next();
+};
 
