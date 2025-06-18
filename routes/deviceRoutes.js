@@ -20,6 +20,15 @@ const router = express.Router();
 // Protect all routes
 router.use(protect);
 
+// RFID Card routes
+router.post('/cards/assign', assignCardToCustomer);
+router.get('/cards', getCustomerCards);
+router.patch('/cards/:cardId/deactivate', deactivateCard);
+
+// PIN Management routes
+router.post('/cards/verify-pin', verifyCardPin);
+router.patch('/cards/:cardId/change-pin', changeCardPin);
+
 // Admin routes for card management
 router.post('/admin/cards/assign/:customerId', adminOnly, assignCardToCustomer);
 router.get('/admin/customers/:customerId/cards', adminOnly, getCustomerCards);
