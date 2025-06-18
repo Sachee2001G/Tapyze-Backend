@@ -4,6 +4,7 @@ import Merchant from "../models/Merchant.js";
 import Customer from "../models/Customer.js";
 import Admin from "../models/Admin.js";
 import Wallet from "../models/Wallet.js";
+import { sendEmail } from "../utils/email.js";
 
 // Helper function to create JWT
 const signToken = (id, type) => {
