@@ -68,4 +68,7 @@ router.patch("/merchant/profile", protect, merchantOnly, merchantEditProfile);
 router.post("/admin/setup", setupFirstAdmin); // For creating the first admin
 router.post("/admin/login", adminLogin);
 
+// Create additional admin (admin-only)
+router.post("/admin/create", protect, adminOnly, createAdmin);
+
 export default router;
