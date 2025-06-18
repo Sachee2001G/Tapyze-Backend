@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const customerSchema = new mongoose.Schema({
   fullName: {
@@ -76,6 +77,14 @@ customerSchema.methods.createPasswordResetCode = function () {
   this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
 
   return resetCode; // Return the plain code to send via email
+};
+// Remove password from JSON response
+customerSchema.methods.toJSON = function () {
+  const obj = this.toObject();
+  delete obj.password;
+  delete obj.passwordResetCode;
+  delete obj.passwordResetExpires;
+  return obj;
 };
 
 const Customer = mongoose.model("Customer", customerSchema);
