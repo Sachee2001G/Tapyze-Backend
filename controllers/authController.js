@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+import crypto from 'crypto';
+import Customer from '../models/Customer.js';
 
 // Helper function to create JWT
 const signToken = (id, type) => {
@@ -27,4 +29,85 @@ const createWallet = async (owner, ownerType) => {
     owner: owner._id,
     ownerType,
   });
+};
+
+// CUSTOMER SIGNUP
+export const customerSignup = async (req, res, next) => {
+  try {
+    const {
+      fullName,
+      email,
+      phone,
+      gender,
+      password,
+      confirmPassword
+    } = req.body;
+    
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Passwords do not match'
+      });
+    }
+    
+    // Check if user already exists
+    const existingCustomer = await Customer.findOne({
+      $or: [{ email }, { phone }]
+    });
+    
+    if (existingCustomer) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'User with this email or phone already exists'
+      });
+    }
+    
+    // Create customer
+    const customer = await Customer.create({
+      fullName,
+      email,
+      phone,
+      gender,
+      password
+    });
+    
+    // Create wallet for customer
+    await createWallet(customer, 'Customer');
+    
+    createSendToken(customer, 201, res, 'Account created successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// CUSTOMER LOGIN
+export const customerLogin = async (req, res, next) => {
+  try {
+    const { email, phone, password } = req.body;
+    
+    // Check if email/phone and password exist
+    if ((!email && !phone) || !password) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Please provide email/phone and password'
+      });
+    }
+    
+    // Check if customer exists
+    const customer = await Customer.findOne({
+      $or: [{ email }, { phone }]
+    }).select('+password');
+    
+    if (!customer || !(await customer.correctPassword(password, customer.password))) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Incorrect credentials'
+      });
+    }
+    
+    createSendToken(customer, 200, res, 'Login successful');
+  } catch (error) {
+    next(error);
+  }
 };
