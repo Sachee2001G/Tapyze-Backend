@@ -1,49 +1,49 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const transactionSchema = new mongoose.Schema({
   wallet: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Wallet',
-    required: true
+    ref: "Wallet",
+    required: true,
   },
   amount: {
     type: Number,
-    required: [true, 'Transaction amount is required']
+    required: [true, "Transaction amount is required"],
   },
   type: {
     type: String,
     required: true,
-    enum: ['CREDIT', 'DEBIT', 'TRANSFER']
+    enum: ["CREDIT", "DEBIT", "TRANSFER"],
   },
   description: {
     type: String,
-    required: true
+    required: true,
   },
   reference: {
     type: String,
-    unique: true
+    unique: true,
   },
   status: {
     type: String,
-    enum: ['PENDING', 'COMPLETED', 'FAILED'],
-    default: 'COMPLETED'
+    enum: ["PENDING", "COMPLETED", "FAILED"],
+    default: "COMPLETED",
   },
   metadata: {
-    type: mongoose.Schema.Types.Mixed
+    type: mongoose.Schema.Types.Mixed,
   },
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Generate a unique reference before saving
-transactionSchema.pre('save', function(next) {
+transactionSchema.pre("save", function (next) {
   if (!this.reference) {
     this.reference = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
   }
   next();
 });
 
-const RfidCard = mongoose.model("RfidCard", rfidCardSchema);
-export default RfidCard;
+const Transaction = mongoose.model("Transaction", transactionSchema);
+export default Transaction;
