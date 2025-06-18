@@ -35,3 +35,15 @@ const adminSchema = new mongoose.Schema({
     default: true
   }
 });
+
+// Hash password before saving
+adminSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, parseInt(process.env.BCRYPT_ROUNDS) || 12);
+  next();
+});
+
+// Instance method to check password
+adminSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
