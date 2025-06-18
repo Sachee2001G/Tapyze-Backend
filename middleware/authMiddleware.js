@@ -2,7 +2,7 @@ import Customer from "../models/Customer.js";
 import Merchant from "../models/Merchant.js";
 import Admin from "../models/Admin.js";
 import jwt from "jsonwebtoken";
-import { promisify } from "util";
+import { promisify } from "util"; // -> for email verification
 
 export const protect = async (req, res, next) => {
   try {
@@ -72,10 +72,10 @@ export const restrictTo = (...roles) => {
 };
 // Admin only middleware (convenience function)
 export const adminOnly = (req, res, next) => {
-  if (req.user.type !== 'Admin') {
+  if (req.user.type !== "Admin") {
     return res.status(403).json({
-      status: 'error',
-      message: 'This route is restricted to admin users only'
+      status: "error",
+      message: "This route is restricted to admin users only",
     });
   }
   next();
@@ -83,12 +83,22 @@ export const adminOnly = (req, res, next) => {
 
 // Customer only middleware (convenience function)
 export const customerOnly = (req, res, next) => {
-  if (req.user.type !== 'Customer') {
+  if (req.user.type !== "Customer") {
     return res.status(403).json({
-      status: 'error',
-      message: 'This route is restricted to customer users only'
+      status: "error",
+      message: "This route is restricted to customer users only",
     });
   }
   next();
 };
 
+// Merchant only middleware (convenience function)
+export const merchantOnly = (req, res, next) => {
+  if (req.user.type !== "Merchant") {
+    return res.status(403).json({
+      status: "error",
+      message: "This route is restricted to merchant users only",
+    });
+  }
+  next();
+};
