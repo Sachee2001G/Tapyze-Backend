@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 
-import Merchant from '../models/Merchant.js';
-import Customer from '../models/Customer.js';
+import Merchant from "../models/Merchant.js";
+import Customer from "../models/Customer.js";
+import Admin from "../models/Admin.js";
 
 // Helper function to create JWT
 const signToken = (id, type) => {
@@ -35,48 +36,42 @@ const createWallet = async (owner, ownerType) => {
 // CUSTOMER SIGNUP
 export const customerSignup = async (req, res, next) => {
   try {
-    const {
-      fullName,
-      email,
-      phone,
-      gender,
-      password,
-      confirmPassword
-    } = req.body;
-    
+    const { fullName, email, phone, gender, password, confirmPassword } =
+      req.body;
+
     // Validate passwords match
     if (password !== confirmPassword) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Passwords do not match'
+        status: "error",
+        message: "Passwords do not match",
       });
     }
-    
+
     // Check if user already exists
     const existingCustomer = await Customer.findOne({
-      $or: [{ email }, { phone }]
+      $or: [{ email }, { phone }],
     });
-    
+
     if (existingCustomer) {
       return res.status(400).json({
-        status: 'error',
-        message: 'User with this email or phone already exists'
+        status: "error",
+        message: "User with this email or phone already exists",
       });
     }
-    
+
     // Create customer
     const customer = await Customer.create({
       fullName,
       email,
       phone,
       gender,
-      password
+      password,
     });
-    
+
     // Create wallet for customer
-    await createWallet(customer, 'Customer');
-    
-    createSendToken(customer, 201, res, 'Account created successfully');
+    await createWallet(customer, "Customer");
+
+    createSendToken(customer, 201, res, "Account created successfully");
   } catch (error) {
     next(error);
   }
@@ -86,28 +81,31 @@ export const customerSignup = async (req, res, next) => {
 export const customerLogin = async (req, res, next) => {
   try {
     const { email, phone, password } = req.body;
-    
+
     // Check if email/phone and password exist
     if ((!email && !phone) || !password) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Please provide email/phone and password'
+        status: "error",
+        message: "Please provide email/phone and password",
       });
     }
-    
+
     // Check if customer exists
     const customer = await Customer.findOne({
-      $or: [{ email }, { phone }]
-    }).select('+password');
-    
-    if (!customer || !(await customer.correctPassword(password, customer.password))) {
+      $or: [{ email }, { phone }],
+    }).select("+password");
+
+    if (
+      !customer ||
+      !(await customer.correctPassword(password, customer.password))
+    ) {
       return res.status(401).json({
-        status: 'error',
-        message: 'Incorrect credentials'
+        status: "error",
+        message: "Incorrect credentials",
       });
     }
-    
-    createSendToken(customer, 200, res, 'Login successful');
+
+    createSendToken(customer, 200, res, "Login successful");
   } catch (error) {
     next(error);
   }
@@ -124,29 +122,29 @@ export const merchantSignup = async (req, res, next) => {
       businessAddress,
       businessType,
       password,
-      confirmPassword
+      confirmPassword,
     } = req.body;
-    
+
     // Validate passwords match
     if (password !== confirmPassword) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Passwords do not match'
+        status: "error",
+        message: "Passwords do not match",
       });
     }
-    
+
     // Check if merchant already exists
     const existingMerchant = await Merchant.findOne({
-      $or: [{ email }, { phone }]
+      $or: [{ email }, { phone }],
     });
-    
+
     if (existingMerchant) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Merchant with this email or phone already exists'
+        status: "error",
+        message: "Merchant with this email or phone already exists",
       });
     }
-    
+
     // Create merchant
     const merchant = await Merchant.create({
       businessName,
@@ -155,13 +153,18 @@ export const merchantSignup = async (req, res, next) => {
       phone,
       businessAddress,
       businessType,
-      password
+      password,
     });
-    
+
     // Create wallet for merchant
-    await createWallet(merchant, 'Merchant');
-    
-    createSendToken(merchant, 201, res, 'Merchant account created successfully');
+    await createWallet(merchant, "Merchant");
+
+    createSendToken(
+      merchant,
+      201,
+      res,
+      "Merchant account created successfully"
+    );
   } catch (error) {
     next(error);
   }
@@ -171,26 +174,185 @@ export const merchantSignup = async (req, res, next) => {
 export const merchantLogin = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    
+
     // Check if email and password exist
     if (!email || !password) {
       return res.status(400).json({
-        status: 'error',
-        message: 'Please provide email and password'
+        status: "error",
+        message: "Please provide email and password",
       });
     }
-    
+
     // Check if merchant exists
-    const merchant = await Merchant.findOne({ email }).select('+password');
-    
-    if (!merchant || !(await merchant.correctPassword(password, merchant.password))) {
+    const merchant = await Merchant.findOne({ email }).select("+password");
+
+    if (
+      !merchant ||
+      !(await merchant.correctPassword(password, merchant.password))
+    ) {
       return res.status(401).json({
-        status: 'error',
-        message: 'Incorrect email or password'
+        status: "error",
+        message: "Incorrect email or password",
       });
     }
-    
-    createSendToken(merchant, 200, res, 'Login successful');
+
+    createSendToken(merchant, 200, res, "Login successful");
+  } catch (error) {
+    next(error);
+  }
+};
+// ADMIN LOGIN
+export const adminLogin = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if email and password exist
+    if (!email || !password) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide email and password",
+      });
+    }
+
+    // Check if admin exists
+    const admin = await Admin.findOne({ email }).select("+password");
+
+    if (!admin || !(await admin.correctPassword(password, admin.password))) {
+      return res.status(401).json({
+        status: "error",
+        message: "Incorrect email or password",
+      });
+    }
+
+    createSendToken(admin, 200, res, "Login successful");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// SETUP FIRST ADMIN (one-time setup)
+export const setupFirstAdmin = async (req, res, next) => {
+  try {
+    // Check if any admins already exist
+    const adminCount = await Admin.countDocuments();
+
+    if (adminCount > 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "Admin accounts already exist. Cannot use this endpoint.",
+      });
+    }
+
+    const { fullName, email, password, confirmPassword } = req.body;
+
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Passwords do not match",
+      });
+    }
+
+    // Validate required fields
+    if (!fullName || !email || !password) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide all required fields",
+      });
+    }
+
+    // Create first admin as SUPER_ADMIN
+    const admin = await Admin.create({
+      fullName,
+      email,
+      password,
+      role: "SUPER_ADMIN",
+    });
+
+    createSendToken(
+      admin,
+      201,
+      res,
+      "First admin account created successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// CREATE ADDITIONAL ADMIN (Only existing admins can do this)
+export const createAdmin = async (req, res, next) => {
+  try {
+    // Check if the request is coming from an admin
+    if (req.user.type !== "Admin") {
+      return res.status(403).json({
+        status: "error",
+        message: "Only existing admins can create new admin accounts",
+      });
+    }
+
+    const {
+      fullName,
+      email,
+      password,
+      confirmPassword,
+      role = "ADMIN", // Default role is ADMIN
+    } = req.body;
+
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Passwords do not match",
+      });
+    }
+
+    // Check if user already exists
+    const existingAdmin = await Admin.findOne({ email });
+
+    if (existingAdmin) {
+      return res.status(400).json({
+        status: "error",
+        message: "Admin with this email already exists",
+      });
+    }
+
+    // Validate role
+    const validRoles = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Invalid role. Must be one of: ${validRoles.join(", ")}`,
+      });
+    }
+
+    // Extra check: Only SUPER_ADMINs can create other SUPER_ADMINs
+    const currentAdmin = await Admin.findById(req.user.id);
+    if (role === "SUPER_ADMIN" && currentAdmin.role !== "SUPER_ADMIN") {
+      return res.status(403).json({
+        status: "error",
+        message: "Only SUPER_ADMINs can create other SUPER_ADMINs",
+      });
+    }
+
+    // Create admin
+    const admin = await Admin.create({
+      fullName,
+      email,
+      password,
+      role,
+    });
+
+    // Don't send back the password
+    admin.password = undefined;
+
+    res.status(201).json({
+      status: "success",
+      message: "Admin account created successfully",
+      data: {
+        admin,
+      },
+    });
   } catch (error) {
     next(error);
   }
