@@ -1,10 +1,8 @@
 import Admin from "../models/Admin.js";
 import Customer from "../models/Customer.js";
-// import Merchant from "../models/Merchant.js";
+import Merchant from "../models/Merchant.js";
 import Transaction from "../models/Transaction.js";
 import Wallet from "../models/Wallet.js";
-// import RfidCard from "../models/RfidCard.js";
-// import NfcScanner from "../models/NfcScanner.js";
 
 // Get all admins (admin-only)
 export const getAllAdmins = async (req, res, next) => {
@@ -185,6 +183,68 @@ export const getAllCustomers = async (req, res, next) => {
       results: customersWithDetails.length,
       data: {
         customers: customersWithDetails,
+        pagination: {
+          total,
+          page,
+          pages: Math.ceil(total / limit),
+          limit,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get all merchants (admin-only)
+export const getAllMerchants = async (req, res, next) => {
+  try {
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    // Get merchants
+    const merchants = await Merchant.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Get total count for pagination
+    const total = await Merchant.countDocuments();
+
+    // Populate wallet and NFC scanner data for each merchant
+    const merchantsWithDetails = await Promise.all(
+      merchants.map(async (merchant) => {
+        // Get wallet data
+        const wallet = await Wallet.findOne({
+          owner: merchant._id,
+          ownerType: "Merchant",
+        });
+
+        // Get NFC scanners
+        const nfcScanners = await NfcScanner.find({
+          owner: merchant._id,
+        }).select("deviceId status isActive model");
+
+        return {
+          ...merchant.toObject(),
+          wallet: wallet
+            ? {
+                balance: wallet.balance,
+                currency: wallet.currency,
+              }
+            : null,
+          nfcScanners: nfcScanners || [],
+        };
+      })
+    );
+
+    res.status(200).json({
+      status: "success",
+      results: merchantsWithDetails.length,
+      data: {
+        merchants: merchantsWithDetails,
         pagination: {
           total,
           page,
