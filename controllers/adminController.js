@@ -47,3 +47,50 @@ export const getAdminById = async (req, res, next) => {
     next(error);
   }
 };
+
+// Update admin (admin-only)
+export const updateAdmin = async (req, res, next) => {
+    try {
+        const { fullName, email, role } = req.body;
+    
+        // Don't allow password updates through this route
+        if (req.body.password) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'This route is not for password updates. Please use /updatePassword.'
+            });
+        }
+        // Check permissions - only SUPER_ADMINs can update role to SUPER_ADMIN
+        if (role === 'SUPER_ADMIN') {
+            const currentAdmin = await Admin.findById(req.user.id);
+            if (currentAdmin.role !== 'SUPER_ADMIN') {
+                return res.status(403).json({
+                    status: 'error',
+                    message: 'Only SUPER_ADMINs can grant SUPER_ADMIN privileges'
+                });
+            }
+        }
+    // Find and update admin
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      req.params.id,
+      { fullName, email, role },
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!updatedAdmin) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Admin not found'
+      });
+    }
+    
+    res.status(200).json({
+      status: 'success',
+      data: {
+        admin: updatedAdmin
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
