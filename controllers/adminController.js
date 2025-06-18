@@ -94,3 +94,45 @@ export const updateAdmin = async (req, res, next) => {
     next(error);
   }
 };
+
+// Deactivate admin (admin-only) - We don't delete for audit trail
+export const deactivateAdmin = async (req, res, next) => {
+  try {
+    const admin = await Admin.findById(req.params.id);
+    
+    if (!admin) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Admin not found'
+      });
+    }
+    
+    // Check permissions - only SUPER_ADMINs can deactivate other SUPER_ADMINs
+    const currentAdmin = await Admin.findById(req.user.id);
+    if (admin.role === 'SUPER_ADMIN' && currentAdmin.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Only SUPER_ADMINs can deactivate SUPER_ADMINs'
+      });
+    }
+    
+    // Prevent self-deactivation
+    if (admin._id.toString() === req.user.id.toString()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'You cannot deactivate your own account'
+      });
+    }
+    
+    // Add isActive field to Admin model if you haven't already
+    admin.isActive = false;
+    await admin.save();
+    
+    res.status(200).json({
+      status: 'success',
+      message: 'Admin account deactivated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
