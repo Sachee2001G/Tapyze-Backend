@@ -1,8 +1,9 @@
 import jwt from "jsonwebtoken";
-
+import crypto from "crypto";
 import Merchant from "../models/Merchant.js";
 import Customer from "../models/Customer.js";
 import Admin from "../models/Admin.js";
+import Wallet from "../models/Wallet.js";
 
 // Helper function to create JWT
 const signToken = (id, type) => {
@@ -351,6 +352,500 @@ export const createAdmin = async (req, res, next) => {
       message: "Admin account created successfully",
       data: {
         admin,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// FORGOT PASSWORD - CUSTOMER
+export const customerForgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide your email address",
+      });
+    }
+
+    // Get customer based on email
+    const customer = await Customer.findOne({ email });
+
+    if (!customer) {
+      return res.status(404).json({
+        status: "error",
+        message: "No customer found with that email address",
+      });
+    }
+
+    // Generate the random reset code
+    const resetCode = customer.createPasswordResetCode();
+    await customer.save({ validateBeforeSave: false });
+
+    // Send it to customer's email using template
+    try {
+      await sendEmail({
+        email: customer.email,
+        template: "passwordReset",
+        name: customer.fullName,
+        code: resetCode,
+      });
+
+      res.status(200).json({
+        status: "success",
+        message: "Reset code sent to your email!",
+      });
+    } catch (err) {
+      customer.passwordResetCode = undefined;
+      customer.passwordResetExpires = undefined;
+      await customer.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        status: "error",
+        message: "There was an error sending the email. Try again later.",
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// VERIFY RESET CODE - CUSTOMER
+export const customerVerifyResetCode = async (req, res, next) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide the reset code",
+      });
+    }
+
+    // Hash the provided code to compare with stored hash
+    const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
+
+    // Find customer with matching code and valid expiry
+    const customer = await Customer.findOne({
+      passwordResetCode: hashedCode,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!customer) {
+      return res.status(400).json({
+        status: "error",
+        message: "Reset code is invalid or has expired",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Reset code verified successfully",
+      data: {
+        email: customer.email,
+        verified: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// VERIFY RESET CODE & RESET PASSWORD - CUSTOMER
+export const customerResetPassword = async (req, res, next) => {
+  try {
+    const { code, password, confirmPassword } = req.body;
+
+    if (!code || !password || !confirmPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide reset code, password and confirm password",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Passwords do not match",
+      });
+    }
+
+    // Hash the provided code to compare with stored hash
+    const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
+
+    // Find customer with matching code and valid expiry
+    const customer = await Customer.findOne({
+      passwordResetCode: hashedCode,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!customer) {
+      return res.status(400).json({
+        status: "error",
+        message: "Reset code is invalid or has expired",
+      });
+    }
+
+    // Set new password and clear reset fields
+    customer.password = password;
+    customer.passwordResetCode = undefined;
+    customer.passwordResetExpires = undefined;
+    await customer.save();
+
+    // Log the customer in, send JWT
+    createSendToken(customer, 200, res, "Password reset successful");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// FORGOT PASSWORD - MERCHANT
+export const merchantForgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide your email address",
+      });
+    }
+
+    // Get merchant based on email
+    const merchant = await Merchant.findOne({ email });
+
+    if (!merchant) {
+      return res.status(404).json({
+        status: "error",
+        message: "No merchant found with that email address",
+      });
+    }
+
+    // Generate the random reset code
+    const resetCode = merchant.createPasswordResetCode();
+    await merchant.save({ validateBeforeSave: false });
+
+    // Send it to merchant's email using template
+    try {
+      await sendEmail({
+        email: merchant.email,
+        template: "merchantPasswordReset",
+        ownerName: merchant.ownerName,
+        businessName: merchant.businessName,
+        code: resetCode,
+      });
+
+      res.status(200).json({
+        status: "success",
+        message: "Reset code sent to your email!",
+      });
+    } catch (err) {
+      merchant.passwordResetCode = undefined;
+      merchant.passwordResetExpires = undefined;
+      await merchant.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        status: "error",
+        message: "There was an error sending the email. Try again later.",
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// VERIFY RESET CODE - MERCHANT
+export const merchantVerifyResetCode = async (req, res, next) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide the reset code",
+      });
+    }
+
+    // Hash the provided code to compare with stored hash
+    const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
+
+    // Find merchant with matching code and valid expiry
+    const merchant = await Merchant.findOne({
+      passwordResetCode: hashedCode,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!merchant) {
+      return res.status(400).json({
+        status: "error",
+        message: "Reset code is invalid or has expired",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: "Reset code verified successfully",
+      data: {
+        email: merchant.email,
+        verified: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// VERIFY RESET CODE & RESET PASSWORD - MERCHANT
+export const merchantResetPassword = async (req, res, next) => {
+  try {
+    const { code, password, confirmPassword } = req.body;
+
+    if (!code || !password || !confirmPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please provide reset code, password and confirm password",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Passwords do not match",
+      });
+    }
+
+    // Hash the provided code to compare with stored hash
+    const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
+
+    // Find merchant with matching code and valid expiry
+    const merchant = await Merchant.findOne({
+      passwordResetCode: hashedCode,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!merchant) {
+      return res.status(400).json({
+        status: "error",
+        message: "Reset code is invalid or has expired",
+      });
+    }
+
+    // Set new password and clear reset fields
+    merchant.password = password;
+    merchant.passwordResetCode = undefined;
+    merchant.passwordResetExpires = undefined;
+    await merchant.save();
+
+    // Log the merchant in, send JWT
+    createSendToken(merchant, 200, res, "Password reset successful");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// CHANGE PASSWORD - CUSTOMER
+export const customerChangePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Please provide current password, new password and confirm new password",
+      });
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "New passwords do not match",
+      });
+    }
+
+    // Get customer from collection
+    const customer = await Customer.findById(req.user.id).select("+password");
+
+    // Check if current password is correct
+    if (!(await customer.correctPassword(currentPassword, customer.password))) {
+      return res.status(401).json({
+        status: "error",
+        message: "Your current password is incorrect",
+      });
+    }
+
+    // Update password
+    customer.password = newPassword;
+    await customer.save();
+
+    // Log customer in, send JWT
+    createSendToken(customer, 200, res, "Password changed successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// CHANGE PASSWORD - MERCHANT
+export const merchantChangePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      return res.status(400).json({
+        status: "error",
+        message:
+          "Please provide current password, new password and confirm new password",
+      });
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "New passwords do not match",
+      });
+    }
+
+    // Get merchant from collection
+    const merchant = await Merchant.findById(req.user.id).select("+password");
+
+    // Check if current password is correct
+    if (!(await merchant.correctPassword(currentPassword, merchant.password))) {
+      return res.status(401).json({
+        status: "error",
+        message: "Your current password is incorrect",
+      });
+    }
+
+    // Update password
+    merchant.password = newPassword;
+    await merchant.save();
+
+    // Log merchant in, send JWT
+    createSendToken(merchant, 200, res, "Password changed successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// EDIT PROFILE - CUSTOMER
+export const customerEditProfile = async (req, res, next) => {
+  try {
+    const { fullName, phone, gender } = req.body;
+
+    // Build update object with only provided fields
+    const updateData = {};
+    if (fullName) updateData.fullName = fullName;
+    if (phone) updateData.phone = phone;
+    if (gender) updateData.gender = gender;
+
+    // Check if phone is being updated and already exists
+    if (phone) {
+      const existingCustomer = await Customer.findOne({
+        phone,
+        _id: { $ne: req.user.id },
+      });
+
+      if (existingCustomer) {
+        return res.status(400).json({
+          status: "error",
+          message: "Phone number already exists",
+        });
+      }
+    }
+
+    // Update customer
+    const customer = await Customer.findByIdAndUpdate(req.user.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Profile updated successfully",
+      data: {
+        customer,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// EDIT PROFILE - MERCHANT
+export const merchantEditProfile = async (req, res, next) => {
+  try {
+    const { businessName, ownerName, phone, businessAddress, businessType } =
+      req.body;
+
+    // Build update object with only provided fields
+    const updateData = {};
+    if (businessName) updateData.businessName = businessName;
+    if (ownerName) updateData.ownerName = ownerName;
+    if (phone) updateData.phone = phone;
+    if (businessAddress) updateData.businessAddress = businessAddress;
+    if (businessType) updateData.businessType = businessType;
+
+    // Check if phone is being updated and already exists
+    if (phone) {
+      const existingMerchant = await Merchant.findOne({
+        phone,
+        _id: { $ne: req.user.id },
+      });
+
+      if (existingMerchant) {
+        return res.status(400).json({
+          status: "error",
+          message: "Phone number already exists",
+        });
+      }
+    }
+
+    // Update merchant
+    const merchant = await Merchant.findByIdAndUpdate(req.user.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Profile updated successfully",
+      data: {
+        merchant,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET PROFILE - CUSTOMER
+export const getCustomerProfile = async (req, res, next) => {
+  try {
+    const customer = await Customer.findById(req.user.id);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        customer,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET PROFILE - MERCHANT
+export const getMerchantProfile = async (req, res, next) => {
+  try {
+    const merchant = await Merchant.findById(req.user.id);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        merchant,
       },
     });
   } catch (error) {
