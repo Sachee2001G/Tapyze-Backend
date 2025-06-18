@@ -2,7 +2,8 @@ import express from "express";
 import {
   getWalletBalance,
   topUpWallet,
-  
+  transferFunds,
+  getTransactionHistory,
 } from "../controllers/walletController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
