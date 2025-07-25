@@ -24,7 +24,7 @@ baseUrl: http://localhost:5000/api
 ```
 {
   "email": "customer@example.com",
-  "password": "password123"
+  "password": "newpassword123"
 }
 ```
 
